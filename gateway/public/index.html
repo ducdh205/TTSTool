@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VieNeu TTS</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>VieNeu TTS</h1>
+      <p class="sub">Chuyển văn bản tiếng Việt thành giọng nói</p>
+    </header>
+
+    <form id="form" class="card" novalidate>
+      <div class="row">
+        <label>Vùng
+          <select id="region" required></select>
+        </label>
+        <label>Giọng
+          <select id="voice" required></select>
+        </label>
+      </div>
+
+      <label>Tốc độ <output id="speedOut">1.00×</output>
+        <div class="speed">
+          <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1" />
+          <button type="button" id="speedReset" class="ghost">1.0×</button>
+        </div>
+      </label>
+
+      <label>Văn bản <span class="counter"><span id="count">0</span>/<span id="max">3000</span></span>
+        <textarea id="text" rows="7" maxlength="3000" placeholder="Nhập nội dung cần đọc..." required></textarea>
+      </label>
+
+      <div class="actions">
+        <div class="formats" role="radiogroup" aria-label="Định dạng">
+          <label class="radio"><input type="radio" name="format" value="mp3" checked /> MP3</label>
+          <label class="radio"><input type="radio" name="format" value="wav" /> WAV</label>
+        </div>
+        <button id="submit" type="submit">Tạo giọng nói</button>
+      </div>
+    </form>
+
+    <section id="result" class="card" hidden>
+      <div class="status-line">
+        <span id="status" class="status"></span>
+        <span id="cachedBadge" class="badge" hidden>Từ cache</span>
+      </div>
+      <div id="progress" class="progress" hidden><div></div></div>
+      <audio id="player" controls hidden></audio>
+      <a id="download" class="download" hidden download>Tải về</a>
+    </section>
+
+    <section class="card" id="historyCard" hidden>
+      <h2>Gần đây</h2>
+      <ul id="history"></ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
