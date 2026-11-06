@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Job, UnrecoverableError } from 'bullmq';
 import { TTS_QUEUE } from '../common/constants';
 import { AudioCacheService } from '../cache/audio-cache.service';
@@ -11,7 +11,7 @@ import {
 import type { TtsJobData, TtsJobResult } from './tts.types';
 
 @Processor(TTS_QUEUE)
-export class TtsProcessor extends WorkerHost implements OnModuleInit {
+export class TtsProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(TtsProcessor.name);
 
   constructor(
@@ -22,7 +22,9 @@ export class TtsProcessor extends WorkerHost implements OnModuleInit {
     super();
   }
 
-  onModuleInit() {
+  // The worker is created by BullModule during onModuleInit, so it is only
+  // guaranteed to exist from onApplicationBootstrap on.
+  onApplicationBootstrap() {
     // CPU inference: keep this at 1 unless tts-service runs on a GPU.
     this.worker.concurrency = Math.max(1, this.cfg.queueConcurrency);
   }

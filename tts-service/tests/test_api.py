@@ -31,6 +31,8 @@ class FakeVieneu:
 
     def infer(self, text, voice=None, **_):
         self.calls.append((text, voice))
+        if text == "...":
+            return np.array([], dtype=np.float32)
         return (0.2 * np.sin(np.arange(self.sample_rate) / 10)).astype(np.float32)
 
 
@@ -74,6 +76,11 @@ def test_voices(client):
 def test_unknown_voice_is_400(client):
     r = client.post("/synthesize", headers=auth(), json={"text": "xin chào", "voice": "Không có"})
     assert r.status_code == 400
+
+
+def test_empty_model_output_is_422_not_500(client):
+    r = client.post("/synthesize", headers=auth(), json={"text": "...", "voice": "Hải Đăng"})
+    assert r.status_code == 422
 
 
 @pytest.mark.parametrize("payload", [{"text": "", "voice": "Hải Đăng"}, {"text": "a", "voice": "Hải Đăng", "speed": 3}])

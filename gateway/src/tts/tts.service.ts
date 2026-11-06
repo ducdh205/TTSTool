@@ -23,11 +23,13 @@ export class TtsService {
   ) {}
 
   async submit(dto: CreateTtsDto): Promise<JobView> {
-    await this.voices.assertVoiceInRegion(dto.voice, dto.region);
+    // SDK voice names are NFC; normalize once so validation, cache key and job agree.
+    const voice = dto.voice.normalize('NFC');
+    await this.voices.assertVoiceInRegion(voice, dto.region);
 
     const data: Omit<TtsJobData, 'hash'> = {
       text: normalizeText(dto.text),
-      voice: dto.voice,
+      voice,
       speed: roundSpeed(dto.speed ?? 1),
       format: dto.format ?? 'mp3',
     };
@@ -70,6 +72,14 @@ export class TtsService {
     switch (state) {
       case 'completed': {
         const r = job.returnvalue;
+        if (!(await this.cache.get(jobId))) {
+          // Audio was purged after the job finished; submit() will re-queue it.
+          return {
+            jobId,
+            status: 'failed',
+            error: 'Audio đã bị xoá khỏi cache, hãy tạo lại',
+          };
+        }
         return {
           jobId,
           status: 'completed',

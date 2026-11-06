@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from .audio import MAX_SPEED, MIN_SPEED, AudioProcessingError
 from .config import Settings, get_settings
-from .engine import TtsEngine, UnknownVoiceError
+from .engine import EmptyAudioError, TtsEngine, UnknownVoiceError
 from .voices import Voice
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -78,6 +78,9 @@ def synthesize(
         out = engine.synthesize(text, req.voice, req.speed, req.format)
     except UnknownVoiceError as e:
         raise HTTPException(400, str(e)) from e
+    except EmptyAudioError as e:
+        # Deterministic for this input: 4xx so the gateway does not retry it.
+        raise HTTPException(422, str(e)) from e
     except AudioProcessingError as e:
         log.exception("audio post-processing failed")
         raise HTTPException(500, f"audio processing failed: {e}") from e

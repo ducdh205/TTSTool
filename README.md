@@ -73,4 +73,5 @@ VieNeu v3 Turbo không có tham số tốc độ, nên tốc độ được ch�
 ## Ghi chú
 
 - VieNeu v3 Turbo dùng giấy phép Apache-2.0 và mặc định gắn watermark vào audio.
+- **Đổi model hoặc precision** (`VIENEU_MODE`, `VIENEU_PRECISION`, `MP3_BITRATE`) thì phải đổi luôn `MODEL_TAG` trong `gateway/.env`. Nếu không, gateway sẽ tiếp tục trả audio cũ từ cache.
 - int8 trên CPU cần VNNI (AVX-512 VNNI hoặc AVX-VNNI). Nếu CPU không hỗ trợ, đặt `VIENEU_PRECISION=fp32`.

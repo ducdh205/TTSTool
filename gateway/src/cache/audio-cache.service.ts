@@ -31,6 +31,7 @@ export interface CacheEntry {
 const KEY_PREFIX = 'tts:cache:';
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
 const TMP_MAX_AGE_MS = 60 * 60_000;
+const FRESH_FILE_GRACE_MS = 10 * 60_000;
 
 /** Audio bytes live on disk; Redis holds metadata with TTL. An entry is valid only if both exist. */
 @Injectable()
@@ -106,6 +107,9 @@ export class AudioCacheService implements OnModuleInit, OnModuleDestroy {
         const path = join(this.cfg.audioDir, name);
         const m = AUDIO_FILE_RE.exec(name);
         if (m) {
+          // Skip fresh files: put() renames the file before writing its Redis key.
+          const s = await stat(path).catch(() => null);
+          if (!s || Date.now() - s.mtimeMs < FRESH_FILE_GRACE_MS) continue;
           if (!(await this.redis.exists(KEY_PREFIX + m[1]))) {
             await unlink(path).catch(() => undefined);
             removed++;

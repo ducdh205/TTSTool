@@ -176,6 +176,17 @@ describe('Gateway (e2e)', () => {
     expect(fakeClient.synthesize.mock.calls.length - calls).toBe(2);
   });
 
+  it('accepts NFD-encoded voice names', async () => {
+    const r = await request(http)
+      .post('/api/tts')
+      .send({ text: 'ba', region: 'bac', voice: 'Hải Đăng'.normalize('NFD') });
+    expect([200, 202]).toContain(r.status);
+    await waitDone(http, r.body.jobId);
+    expect(fakeClient.synthesize).toHaveBeenLastCalledWith(
+      expect.objectContaining({ voice: 'Hải Đăng'.normalize('NFC') }),
+    );
+  });
+
   it('does not allow path traversal or unknown jobs', async () => {
     await request(http).get('/api/audio/..%2F..%2Fetc%2Fpasswd').expect(404);
     await request(http)

@@ -21,6 +21,10 @@ class UnknownVoiceError(ValueError):
     pass
 
 
+class EmptyAudioError(ValueError):
+    """The model produced no samples (e.g. text with nothing pronounceable)."""
+
+
 def _patch_onnx_fetch(models_dir: Path) -> None:
     """Make VieNeu's ONNX engine load graphs from real files in one directory.
 
@@ -129,7 +133,7 @@ class TtsEngine:
             wav = self._tts.infer(text, voice=name)
         samples = np.asarray(wav, dtype=np.float32)
         if samples.size == 0:
-            raise ValueError("model produced no audio")
+            raise EmptyAudioError("model produced no audio for this text")
         sr = int(getattr(self._tts, "sample_rate", 48_000))
         infer_s = time.perf_counter() - t0
         out = apply_speed_and_encode(

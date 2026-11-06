@@ -15,7 +15,7 @@ export const appConfig = registerAs('app', () => ({
   ttsTimeoutMs: int(process.env.TTS_TIMEOUT_MS, 5 * 60_000),
   redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
   audioDir: resolve(process.env.AUDIO_DIR ?? './storage/audio'),
-  cacheTtlDays: int(process.env.CACHE_TTL_DAYS, 7),
+  cacheTtlDays: Math.max(1, int(process.env.CACHE_TTL_DAYS, 7)),
   queueConcurrency: int(process.env.QUEUE_CONCURRENCY, 1),
   /** Part of the cache key: bump when model/precision changes so old audio is not reused. */
   modelTag: process.env.MODEL_TAG ?? 'vieneu-v3turbo-int8',
@@ -23,13 +23,15 @@ export const appConfig = registerAs('app', () => ({
 
 export type AppConfig = ReturnType<typeof appConfig>;
 
+/** BullMQ connection options from a redis:// or rediss:// URL (same semantics as ioredis). */
 export function redisConnection(url: string) {
   const u = new URL(url);
   return {
     host: u.hostname,
     port: Number(u.port || 6379),
-    username: u.username || undefined,
+    username: u.username ? decodeURIComponent(u.username) : undefined,
     password: u.password ? decodeURIComponent(u.password) : undefined,
     db: u.pathname.length > 1 ? Number(u.pathname.slice(1)) : 0,
+    tls: u.protocol === 'rediss:' ? {} : undefined,
   };
 }
