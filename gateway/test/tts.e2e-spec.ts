@@ -197,4 +197,45 @@ describe('Gateway (e2e)', () => {
       .get(`/api/tts/jobs/${'b'.repeat(64)}`)
       .expect(404);
   });
+
+  it('batch submit keeps order, isolates bad items and dedups', async () => {
+    const ok = { text: 'lô một', region: 'bac', voice: 'Hải Đăng' };
+    const res = await request(http)
+      .post('/api/tts/batch')
+      .send({
+        items: [ok, { text: 'lô hai', region: 'nam', voice: 'Hải Đăng' }, ok],
+      })
+      .expect(200);
+    expect(res.body).toHaveLength(3);
+    expect(res.body[1]).toMatchObject({ jobId: '', status: 'failed' });
+    expect(res.body[1].error).toEqual(expect.any(String));
+    expect(res.body[0].jobId).toMatch(/^[a-f0-9]{64}$/);
+    expect(res.body[2].jobId).toBe(res.body[0].jobId);
+    expect((await waitDone(http, res.body[0].jobId)).status).toBe('completed');
+
+    const missing = 'f'.repeat(64);
+    const st = await request(http)
+      .post('/api/tts/jobs/status')
+      .send({ ids: [res.body[0].jobId, missing] })
+      .expect(200);
+    expect(st.body).toEqual([
+      expect.objectContaining({
+        jobId: res.body[0].jobId,
+        status: 'completed',
+      }),
+      { jobId: missing, status: 'failed', error: 'Job không tồn tại' },
+    ]);
+  });
+
+  it('rejects empty batch and malformed status ids', async () => {
+    await request(http).post('/api/tts/batch').send({ items: [] }).expect(400);
+    await request(http)
+      .post('/api/tts/batch')
+      .send({ items: [{ text: 'x', region: 'bac' }] })
+      .expect(400);
+    await request(http)
+      .post('/api/tts/jobs/status')
+      .send({ ids: ['bad'] })
+      .expect(400);
+  });
 });

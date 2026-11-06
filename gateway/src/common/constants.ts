@@ -21,3 +21,7 @@ export const MAX_TEXT_LEN = 3000;
 /** sha256 hex — used for job ids, cache keys and audio file names. */
 export const HASH_RE = /^[a-f0-9]{64}$/;
 export const AUDIO_FILE_RE = /^([a-f0-9]{64})\.(mp3|wav)$/;
+
+/** Max items per POST /tts/batch and ids per POST /tts/jobs/status. */
+export const MAX_BATCH = 200;
+export const MAX_STATUS_IDS = 500;

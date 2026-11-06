@@ -1,5 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { HASH_RE, TTS_QUEUE } from '../common/constants';
 import { cacheKey, normalizeText, roundSpeed } from '../cache/cache-key';
@@ -57,6 +62,31 @@ export class TtsService {
       },
     );
     return this.status(hash);
+  }
+
+  /** Submits sequentially (keeps queue order); one bad item never fails the batch. */
+  async submitMany(items: CreateTtsDto[]): Promise<JobView[]> {
+    const out: JobView[] = [];
+    for (const item of items) {
+      try {
+        out.push(await this.submit(item));
+      } catch (e) {
+        out.push({ jobId: '', status: 'failed', error: errorMessage(e) });
+      }
+    }
+    return out;
+  }
+
+  statusMany(ids: string[]): Promise<JobView[]> {
+    return Promise.all(
+      ids.map((id) =>
+        this.status(id).catch((e: unknown): JobView => ({
+          jobId: id,
+          status: 'failed',
+          error: errorMessage(e),
+        })),
+      ),
+    );
   }
 
   async status(jobId: string): Promise<JobView> {
@@ -123,6 +153,18 @@ export class TtsService {
       duration: e.duration,
     };
   }
+}
+
+function errorMessage(e: unknown): string {
+  if (e instanceof HttpException) {
+    const res = e.getResponse();
+    if (typeof res === 'string') return res;
+    const msg = (res as { message?: unknown }).message;
+    if (Array.isArray(msg)) return msg.join('; ');
+    if (typeof msg === 'string') return msg;
+    return e.message;
+  }
+  return e instanceof Error ? e.message : String(e);
 }
 
 const audioUrl = (hash: string, ext: string) => `/api/audio/${hash}.${ext}`;
