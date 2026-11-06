@@ -1,6 +1,8 @@
 """Post-processing: tempo change (pitch-preserving) + encoding via ffmpeg."""
 
+import io
 import subprocess
+import wave
 from dataclasses import dataclass
 from typing import Literal
 
@@ -62,7 +64,9 @@ def apply_speed_and_encode(
     if fmt == "mp3":
         cmd += ["-c:a", "libmp3lame", "-b:a", mp3_bitrate, "-f", "mp3", "pipe:1"]
     else:
-        cmd += ["-c:a", "pcm_s16le", "-f", "wav", "pipe:1"]
+        # Raw PCM: ffmpeg cannot seek back on a pipe to fix the WAV header sizes,
+        # so the header is written here instead (see _wrap_wav).
+        cmd += ["-c:a", "pcm_s16le", "-f", "s16le", "pipe:1"]
 
     try:
         proc = subprocess.run(cmd, input=mono.tobytes(), capture_output=True, check=False)
@@ -71,5 +75,20 @@ def apply_speed_and_encode(
     if proc.returncode != 0 or not proc.stdout:
         raise AudioProcessingError(proc.stderr.decode(errors="replace").strip() or "ffmpeg failed")
 
-    duration = len(mono) / sample_rate / speed
-    return EncodedAudio(proc.stdout, round(duration, 3), sample_rate, MEDIA_TYPES[fmt])
+    if fmt == "wav":
+        data = _wrap_wav(proc.stdout, sample_rate)
+        duration = len(proc.stdout) / 2 / sample_rate
+    else:
+        data = proc.stdout
+        duration = len(mono) / sample_rate / speed
+    return EncodedAudio(data, round(duration, 3), sample_rate, MEDIA_TYPES[fmt])
+
+
+def _wrap_wav(pcm_s16le: bytes, sample_rate: int) -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        w.writeframes(pcm_s16le)
+    return buf.getvalue()
