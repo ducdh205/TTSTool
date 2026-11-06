@@ -35,7 +35,9 @@ Gateway (`gateway/src`):
 - **Region validation:** `VoicesService` memoizes `GET /voices` from tts-service for 10 minutes and enforces that the voice belongs to the requested region (400 otherwise).
 - **Retries:** `TtsServiceError` with a 4xx status becomes `UnrecoverableError`, so BullMQ does not retry it. 5xx or network errors are retried once.
 - **Concurrency:** worker concurrency (`QUEUE_CONCURRENCY`, default 1, which is right for CPU inference) is set in `onApplicationBootstrap`, because the worker does not exist yet during `onModuleInit`.
-- **Static limits:** `MAX_TEXT_LEN`, the speed range and the regions are static in `common/constants.ts`, since DTO decorators need them at import time. They are duplicated in `public/index.html` and `tts-service` (`MAX_CHARS`, `audio.py`), so keep them in sync by hand.
+- **Static limits:** `MAX_TEXT_LEN`, the speed range and the regions are static in `common/constants.ts`, since DTO decorators need them at import time. They are duplicated in `public/index.html`, `public/testcase-parse.js` and `tts-service` (`MAX_CHARS`, `audio.py`), so keep them in sync by hand.
+- **Batch API:** `POST /api/tts/batch` (≤ `MAX_BATCH` items) and `POST /api/tts/jobs/status` wrap `TtsService.submit/status` per item (`submitMany`/`statusMany`). Per-item errors become `{status:'failed', error}`, and the request itself never fails because of one item.
+- **Testcase page:** `public/testcase.html` + `testcase.js` read Excel in the browser with vendored SheetJS (`public/vendor/xlsx.full.min.js`, 0.18.5). The parsing rules live in `public/testcase-parse.js`, a UMD module that Jest also loads (`src/testcases/testcase-parse.spec.ts`). It duplicates `MAX_TEXT_LEN` and the default voice per region. `GET /api/testcases` lists `*.xlsx` in `TESTCASE_DIR` (gitignored; served statically at `/testcase/`). Audio clip state is in memory only, so after a reload rows show "cần sinh" until **Sinh giọng** is clicked, which then hits the cache.
 - **Version pins:** stay on Nest 11 majors (`@nestjs/serve-static@5`, `config@4`, `bullmq@11`, `throttler@6`). Newer majors require Nest 12.
 
 tts-service (`tts-service/app`):

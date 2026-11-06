@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Testcase Voice Player</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="wrap wide">
+    <header class="head">
+      <div>
+        <h1>Testcase Voice Player</h1>
+        <p class="sub">Đọc câu nói testcase từ Excel bằng giọng theo vùng miền</p>
+      </div>
+      <a class="nav" href="/">← Chuyển văn bản</a>
+    </header>
+
+    <section class="card" aria-labelledby="srcTitle">
+      <h2 id="srcTitle">Nguồn dữ liệu</h2>
+      <div class="row">
+        <label>Mở nhanh
+          <select id="quickOpen"><option value="">— Chọn file trong testcase/ —</option></select>
+        </label>
+        <label>Hoặc chọn file .xlsx
+          <input id="fileInput" type="file" accept=".xlsx" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Sheet
+          <select id="sheet" disabled></select>
+        </label>
+        <p id="summary" class="summary"></p>
+      </div>
+      <p id="srcStatus" class="status"></p>
+    </section>
+
+    <section class="card" aria-labelledby="setTitle">
+      <h2 id="setTitle">Thiết lập</h2>
+      <div class="grid4">
+        <label>Wake-word
+          <input id="wakeWord" type="text" maxlength="100" placeholder="Hey Vita" />
+        </label>
+        <label>Nghỉ sau wake-word (giây)
+          <input id="gapAfterWake" type="number" min="0" max="10" step="0.1" />
+        </label>
+        <label>Nghỉ giữa testcase (giây)
+          <input id="gapBetween" type="number" min="0" max="60" step="0.5" />
+        </label>
+        <label>Tốc độ <output id="speedOut">1.00×</output>
+          <input id="speed" type="range" min="0.5" max="2" step="0.05" />
+        </label>
+      </div>
+      <div class="formats" role="radiogroup" aria-label="Định dạng">
+        <label class="radio"><input type="radio" name="format" value="mp3" /> MP3</label>
+        <label class="radio"><input type="radio" name="format" value="wav" /> WAV</label>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="voiceTitle">
+      <h2 id="voiceTitle">Giọng theo vùng</h2>
+      <div id="regionVoices" class="region-voices"></div>
+      <details class="all-voices">
+        <summary>Xem tất cả giọng</summary>
+        <div id="voiceList"></div>
+      </details>
+      <p id="voiceStatus" class="status"></p>
+    </section>
+
+    <section class="card controls" aria-labelledby="ctlTitle">
+      <h2 id="ctlTitle">Điều khiển</h2>
+      <div class="actions">
+        <button id="generate" type="button" disabled>Sinh giọng</button>
+        <div class="gen-progress" id="genProgress" hidden>
+          <div class="bar"><div id="genBar"></div></div>
+          <span id="genText"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="play-ctl">
+          <button id="playAll" type="button" disabled>▶ Phát toàn bộ</button>
+          <button id="pause" type="button" class="ghost" disabled>⏸ Dừng</button>
+          <button id="stop" type="button" class="ghost" disabled>■ Huỷ</button>
+        </div>
+        <label class="inline">Bắt đầu từ dòng #
+          <input id="startFrom" type="number" min="1" step="1" />
+        </label>
+      </div>
+      <p id="nowPlaying" class="status"></p>
+      <ul id="log" class="log"></ul>
+    </section>
+
+    <section class="card" aria-labelledby="tblTitle">
+      <h2 id="tblTitle">Testcase</h2>
+      <div class="table-wrap">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>#</th><th>TC_ID</th><th>Bước</th><th>Vùng (Excel)</th><th>Giọng</th>
+              <th title="Đọc wake-word trước câu nói">WW</th><th>Câu nói</th><th>Trạng thái</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="muted">Chưa có dữ liệu. Chọn file và sheet ở trên.</p>
+    </section>
+
+    <audio id="player" hidden></audio>
+  </main>
+  <script src="/vendor/xlsx.full.min.js"></script>
+  <script src="/testcase-parse.js"></script>
+  <script src="/testcase.js"></script>
+</body>
+</html>
