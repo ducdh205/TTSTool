@@ -13,3 +13,6 @@ coverage/
 .env
 gateway/storage/
 *.log
+
+# Testcase workbooks (local data, not committed)
+gateway/public/testcase/*.xlsx

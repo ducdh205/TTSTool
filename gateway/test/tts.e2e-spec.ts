@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import Redis from 'ioredis';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -15,6 +15,11 @@ const audioDir = mkdtempSync(join(tmpdir(), 'tts-e2e-'));
 process.env.REDIS_URL = REDIS_URL;
 process.env.AUDIO_DIR = audioDir;
 process.env.MODEL_TAG = `e2e-${Date.now()}`;
+const testcaseDir = mkdtempSync(join(tmpdir(), 'tts-e2e-tc-'));
+process.env.TESTCASE_DIR = testcaseDir;
+writeFileSync(join(testcaseDir, 'Bộ test 1.xlsx'), 'xlsx-bytes');
+writeFileSync(join(testcaseDir, '~$lock.xlsx'), 'lock');
+writeFileSync(join(testcaseDir, 'note.txt'), 'note');
 
 const voices = [
   {
@@ -82,6 +87,7 @@ describe('Gateway (e2e)', () => {
   afterAll(async () => {
     await app?.close();
     rmSync(audioDir, { recursive: true, force: true });
+    rmSync(testcaseDir, { recursive: true, force: true });
   });
 
   it('lists regions and voices filtered by region', async () => {
@@ -237,5 +243,17 @@ describe('Gateway (e2e)', () => {
       .post('/api/tts/jobs/status')
       .send({ ids: ['bad'] })
       .expect(400);
+  });
+
+  it('lists testcase workbooks only', async () => {
+    const r = await request(http).get('/api/testcases').expect(200);
+    expect(r.body).toEqual([
+      {
+        name: 'Bộ test 1.xlsx',
+        size: 10,
+        mtime: expect.any(String),
+        url: '/testcase/B%E1%BB%99%20test%201.xlsx',
+      },
+    ]);
   });
 });

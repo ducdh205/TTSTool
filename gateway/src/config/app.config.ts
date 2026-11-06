@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { registerAs } from '@nestjs/config';
 
 const int = (v: string | undefined, d: number) => {
@@ -19,6 +19,11 @@ export const appConfig = registerAs('app', () => ({
   queueConcurrency: int(process.env.QUEUE_CONCURRENCY, 1),
   /** Part of the cache key: bump when model/precision changes so old audio is not reused. */
   modelTag: process.env.MODEL_TAG ?? 'vieneu-v3turbo-int8',
+  /** Folder of .xlsx workbooks offered by the testcase page (served statically under /testcase/). */
+  testcaseDir: resolve(
+    process.env.TESTCASE_DIR ??
+      join(__dirname, '..', '..', 'public', 'testcase'),
+  ),
 }));
 
 export type AppConfig = ReturnType<typeof appConfig>;

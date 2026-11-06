@@ -10,6 +10,7 @@ import {
   type AppConfig,
 } from './config/app.config';
 import { RedisModule } from './redis/redis.module';
+import { TestcasesModule } from './testcases/testcases.module';
 import { TtsModule } from './tts/tts.module';
 import { VoicesModule } from './voices/voices.module';
 
@@ -30,6 +31,7 @@ import { VoicesModule } from './voices/voices.module';
     RedisModule,
     VoicesModule,
     TtsModule,
+    TestcasesModule,
   ],
 })
 export class AppModule {}
