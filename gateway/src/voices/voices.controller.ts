@@ -12,7 +12,10 @@ export class VoicesController {
   }
 
   @Get('voices')
-  list(@Query('region', new ParseEnumPipe(REGION_IDS, { optional: true })) region?: RegionId) {
+  list(
+    @Query('region', new ParseEnumPipe(REGION_IDS, { optional: true }))
+    region?: RegionId,
+  ) {
     return this.voices.list(region);
   }
 }

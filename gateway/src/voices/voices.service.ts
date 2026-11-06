@@ -1,6 +1,14 @@
-import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { RegionId } from '../common/constants';
-import { RemoteVoice, TtsClientService } from '../tts-client/tts-client.service';
+import {
+  RemoteVoice,
+  TtsClientService,
+} from '../tts-client/tts-client.service';
 
 const TTL_MS = 10 * 60_000;
 
@@ -18,17 +26,24 @@ export class VoicesService {
   }
 
   /** Throws 400 if the voice does not exist or is not in the requested region. */
-  async assertVoiceInRegion(voiceId: string, region: RegionId): Promise<RemoteVoice> {
+  async assertVoiceInRegion(
+    voiceId: string,
+    region: RegionId,
+  ): Promise<RemoteVoice> {
     const voice = (await this.all()).find((v) => v.id === voiceId);
-    if (!voice) throw new BadRequestException(`Giọng "${voiceId}" không tồn tại`);
+    if (!voice)
+      throw new BadRequestException(`Giọng "${voiceId}" không tồn tại`);
     if (voice.region !== region) {
-      throw new BadRequestException(`Giọng "${voiceId}" không thuộc vùng "${region}" (thuộc "${voice.region}")`);
+      throw new BadRequestException(
+        `Giọng "${voiceId}" không thuộc vùng "${region}" (thuộc "${voice.region}")`,
+      );
     }
     return voice;
   }
 
   private async all(): Promise<RemoteVoice[]> {
-    if (this.cache && Date.now() - this.cache.at < TTL_MS) return this.cache.voices;
+    if (this.cache && Date.now() - this.cache.at < TTL_MS)
+      return this.cache.voices;
     this.inflight ??= this.client
       .voices()
       .then((voices) => {

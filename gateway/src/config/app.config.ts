@@ -8,7 +8,9 @@ const int = (v: string | undefined, d: number) => {
 
 export const appConfig = registerAs('app', () => ({
   port: int(process.env.PORT, 3000),
-  ttsServiceUrl: (process.env.TTS_SERVICE_URL ?? 'http://127.0.0.1:8001').replace(/\/+$/, ''),
+  ttsServiceUrl: (
+    process.env.TTS_SERVICE_URL ?? 'http://127.0.0.1:8001'
+  ).replace(/\/+$/, ''),
   internalApiKey: process.env.INTERNAL_API_KEY ?? 'change-me',
   ttsTimeoutMs: int(process.env.TTS_TIMEOUT_MS, 5 * 60_000),
   redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',

@@ -4,7 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { join } from 'node:path';
-import { appConfig, redisConnection, type AppConfig } from './config/app.config';
+import {
+  appConfig,
+  redisConnection,
+  type AppConfig,
+} from './config/app.config';
 import { RedisModule } from './redis/redis.module';
 import { TtsModule } from './tts/tts.module';
 import { VoicesModule } from './voices/voices.module';
@@ -15,7 +19,9 @@ import { VoicesModule } from './voices/voices.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     BullModule.forRootAsync({
       inject: [appConfig.KEY],
-      useFactory: (cfg: AppConfig) => ({ connection: redisConnection(cfg.redisUrl) }),
+      useFactory: (cfg: AppConfig) => ({
+        connection: redisConnection(cfg.redisUrl),
+      }),
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),

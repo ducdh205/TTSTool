@@ -135,7 +135,7 @@
       const play = Object.assign(document.createElement('button'), { type: 'button', className: 'ghost', textContent: 'Phát' });
       play.addEventListener('click', () => {
         resetResult();
-        showAudio({ audioUrl: h.audioUrl, jobId: h.jobId, cached: true }, h.format);
+        showAudio({ audioUrl: h.audioUrl, jobId: h.jobId, cached: false }, h.format);
       });
       li.append(txt, meta, play);
       return li;

@@ -1,7 +1,13 @@
 import { cacheKey, normalizeText, roundSpeed } from './cache-key';
 
 describe('cache-key', () => {
-  const base = { modelTag: 'm1', text: 'xin chào', voice: 'Hải Đăng', speed: 1, format: 'mp3' as const };
+  const base = {
+    modelTag: 'm1',
+    text: 'xin chào',
+    voice: 'Hải Đăng',
+    speed: 1,
+    format: 'mp3' as const,
+  };
 
   it('normalizes whitespace and unicode form', () => {
     const nfd = 'Xin   chào\n\tbạn '.normalize('NFD');
@@ -32,6 +38,8 @@ describe('cache-key', () => {
   });
 
   it('treats NFC/NFD voice names the same', () => {
-    expect(cacheKey({ ...base, voice: 'Hải Đăng'.normalize('NFD') })).toBe(cacheKey(base));
+    expect(cacheKey({ ...base, voice: 'Hải Đăng'.normalize('NFD') })).toBe(
+      cacheKey(base),
+    );
   });
 });

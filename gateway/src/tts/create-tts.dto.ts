@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import {
   AUDIO_FORMATS,
   MAX_SPEED,

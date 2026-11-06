@@ -1,6 +1,19 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { mkdir, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readdir,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import type Redis from 'ioredis';
 import { AUDIO_FILE_RE, HASH_RE, type AudioFormat } from '../common/constants';
@@ -59,13 +72,29 @@ export class AudioCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async put(hash: string, ext: AudioFormat, data: Buffer, duration: number): Promise<CacheEntry> {
+  async put(
+    hash: string,
+    ext: AudioFormat,
+    data: Buffer,
+    duration: number,
+  ): Promise<CacheEntry> {
     const target = this.filePath(hash, ext);
     const tmp = `${target}.tmp-${randomBytes(4).toString('hex')}`;
     await writeFile(tmp, data);
     await rename(tmp, target);
-    const entry: CacheEntry = { hash, ext, duration, size: data.length, createdAt: new Date().toISOString() };
-    await this.redis.set(KEY_PREFIX + hash, JSON.stringify(entry), 'EX', this.cfg.cacheTtlDays * 86_400);
+    const entry: CacheEntry = {
+      hash,
+      ext,
+      duration,
+      size: data.length,
+      createdAt: new Date().toISOString(),
+    };
+    await this.redis.set(
+      KEY_PREFIX + hash,
+      JSON.stringify(entry),
+      'EX',
+      this.cfg.cacheTtlDays * 86_400,
+    );
     return entry;
   }
 

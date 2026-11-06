@@ -48,7 +48,11 @@ export class TtsClientService {
   async synthesize(req: SynthesizeRequest): Promise<SynthesizeResult> {
     const res = await this.call(
       '/synthesize',
-      { method: 'POST', body: JSON.stringify(req), headers: { 'content-type': 'application/json' } },
+      {
+        method: 'POST',
+        body: JSON.stringify(req),
+        headers: { 'content-type': 'application/json' },
+      },
       this.cfg.ttsTimeoutMs,
     );
     const data = Buffer.from(await res.arrayBuffer());
@@ -56,22 +60,35 @@ export class TtsClientService {
     return { data, duration };
   }
 
-  private async call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  private async call(
+    path: string,
+    init: RequestInit,
+    timeoutMs: number,
+  ): Promise<Response> {
     let res: Response;
     try {
       res = await fetch(this.cfg.ttsServiceUrl + path, {
         ...init,
-        headers: { ...(init.headers as Record<string, string>), 'x-internal-key': this.cfg.internalApiKey },
+        headers: {
+          ...(init.headers as Record<string, string>),
+          'x-internal-key': this.cfg.internalApiKey,
+        },
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (e) {
-      throw new TtsServiceError(`tts-service unreachable: ${(e as Error).message}`, 0);
+      throw new TtsServiceError(
+        `tts-service unreachable: ${(e as Error).message}`,
+        0,
+      );
     }
     if (!res.ok) {
       let detail = res.statusText;
       try {
         const body = (await res.json()) as { detail?: unknown };
-        detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail ?? body);
+        detail =
+          typeof body.detail === 'string'
+            ? body.detail
+            : JSON.stringify(body.detail ?? body);
       } catch {
         /* non-JSON error body */
       }

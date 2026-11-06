@@ -1,4 +1,10 @@
-import { Global, Inject, Injectable, Module, OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Injectable,
+  Module,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 import { appConfig, type AppConfig } from '../config/app.config';
 
@@ -18,7 +24,8 @@ class RedisCloser implements OnApplicationShutdown {
     {
       provide: REDIS,
       inject: [appConfig.KEY],
-      useFactory: (cfg: AppConfig) => new Redis(cfg.redisUrl, { maxRetriesPerRequest: 3 }),
+      useFactory: (cfg: AppConfig) =>
+        new Redis(cfg.redisUrl, { maxRetriesPerRequest: 3 }),
     },
     RedisCloser,
   ],

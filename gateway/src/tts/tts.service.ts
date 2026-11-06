@@ -3,7 +3,10 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { HASH_RE, TTS_QUEUE } from '../common/constants';
 import { cacheKey, normalizeText, roundSpeed } from '../cache/cache-key';
-import { AudioCacheService, type CacheEntry } from '../cache/audio-cache.service';
+import {
+  AudioCacheService,
+  type CacheEntry,
+} from '../cache/audio-cache.service';
 import { appConfig, type AppConfig } from '../config/app.config';
 import { VoicesService } from '../voices/voices.service';
 import type { CreateTtsDto } from './create-tts.dto';
@@ -12,7 +15,8 @@ import type { JobView, TtsJobData, TtsJobResult } from './tts.types';
 @Injectable()
 export class TtsService {
   constructor(
-    @InjectQueue(TTS_QUEUE) private readonly queue: Queue<TtsJobData, TtsJobResult>,
+    @InjectQueue(TTS_QUEUE)
+    private readonly queue: Queue<TtsJobData, TtsJobResult>,
     @Inject(appConfig.KEY) private readonly cfg: AppConfig,
     private readonly cache: AudioCacheService,
     private readonly voices: VoicesService,
@@ -66,27 +70,51 @@ export class TtsService {
     switch (state) {
       case 'completed': {
         const r = job.returnvalue;
-        return { jobId, status: 'completed', cached: false, audioUrl: audioUrl(r.hash, r.ext), duration: r.duration };
+        return {
+          jobId,
+          status: 'completed',
+          cached: false,
+          audioUrl: audioUrl(r.hash, r.ext),
+          duration: r.duration,
+        };
       }
       case 'failed':
         return { jobId, status: 'failed', error: job.failedReason };
       case 'active':
         return { jobId, status: 'active', progress: progressOf(job) };
       default:
-        return { jobId, status: 'waiting', position: await this.positionOf(job) };
+        return {
+          jobId,
+          status: 'waiting',
+          position: await this.positionOf(job),
+        };
     }
   }
 
   private async positionOf(job: Job): Promise<number> {
-    const [waiting, active] = await Promise.all([this.queue.getWaiting(), this.queue.getActiveCount()]);
-    const ahead = waiting.filter((j) => j.timestamp < job.timestamp || (j.timestamp === job.timestamp && j.id! < job.id!));
+    const [waiting, active] = await Promise.all([
+      this.queue.getWaiting(),
+      this.queue.getActiveCount(),
+    ]);
+    const ahead = waiting.filter(
+      (j) =>
+        j.timestamp < job.timestamp ||
+        (j.timestamp === job.timestamp && j.id! < job.id!),
+    );
     return ahead.length + active;
   }
 
   private fromCache(e: CacheEntry): JobView {
-    return { jobId: e.hash, status: 'completed', cached: true, audioUrl: audioUrl(e.hash, e.ext), duration: e.duration };
+    return {
+      jobId: e.hash,
+      status: 'completed',
+      cached: true,
+      audioUrl: audioUrl(e.hash, e.ext),
+      duration: e.duration,
+    };
   }
 }
 
 const audioUrl = (hash: string, ext: string) => `/api/audio/${hash}.${ext}`;
-const progressOf = (job: Job) => (typeof job.progress === 'number' ? job.progress : 0);
+const progressOf = (job: Job) =>
+  typeof job.progress === 'number' ? job.progress : 0;

@@ -7,7 +7,7 @@ export const REGIONS = [
   { id: 'khac', label: 'Khác' },
 ] as const;
 export type RegionId = (typeof REGIONS)[number]['id'];
-export const REGION_IDS = REGIONS.map((r) => r.id) as RegionId[];
+export const REGION_IDS = REGIONS.map<RegionId>((r) => r.id);
 
 export const AUDIO_FORMATS = ['mp3', 'wav'] as const;
 export type AudioFormat = (typeof AUDIO_FORMATS)[number];

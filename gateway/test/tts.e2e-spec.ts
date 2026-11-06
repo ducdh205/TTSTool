@@ -17,8 +17,22 @@ process.env.AUDIO_DIR = audioDir;
 process.env.MODEL_TAG = `e2e-${Date.now()}`;
 
 const voices = [
-  { id: 'Hải Đăng', name: 'Hải Đăng', region: 'bac', gender: 'male', description: null, isDefault: true },
-  { id: 'Thùy Dung', name: 'Thùy Dung', region: 'nam', gender: 'female', description: null, isDefault: false },
+  {
+    id: 'Hải Đăng',
+    name: 'Hải Đăng',
+    region: 'bac',
+    gender: 'male',
+    description: null,
+    isDefault: true,
+  },
+  {
+    id: 'Thùy Dung',
+    name: 'Thùy Dung',
+    region: 'nam',
+    gender: 'female',
+    description: null,
+    isDefault: false,
+  },
 ];
 
 const fakeClient = {
@@ -32,7 +46,8 @@ const fakeClient = {
 async function waitDone(app: App, jobId: string) {
   for (let i = 0; i < 50; i++) {
     const r = await request(app).get(`/api/tts/jobs/${jobId}`).expect(200);
-    if (r.body.status === 'completed' || r.body.status === 'failed') return r.body;
+    if (r.body.status === 'completed' || r.body.status === 'failed')
+      return r.body;
     await new Promise((res) => setTimeout(res, 100));
   }
   throw new Error('job did not finish');
@@ -53,7 +68,13 @@ describe('Gateway (e2e)', () => {
       .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
     http = app.getHttpServer();
   });
@@ -65,26 +86,52 @@ describe('Gateway (e2e)', () => {
 
   it('lists regions and voices filtered by region', async () => {
     const regions = await request(http).get('/api/regions').expect(200);
-    expect(regions.body.map((r: { id: string }) => r.id)).toEqual(['bac', 'trung', 'nam', 'khac']);
+    expect(regions.body.map((r: { id: string }) => r.id)).toEqual([
+      'bac',
+      'trung',
+      'nam',
+      'khac',
+    ]);
     const nam = await request(http).get('/api/voices?region=nam').expect(200);
     expect(nam.body.map((v: { id: string }) => v.id)).toEqual(['Thùy Dung']);
     await request(http).get('/api/voices?region=xyz').expect(400);
   });
 
   it('rejects voice outside the selected region and bad payloads', async () => {
-    await request(http).post('/api/tts').send({ text: 'a', region: 'nam', voice: 'Hải Đăng' }).expect(400);
-    await request(http).post('/api/tts').send({ text: '   ', region: 'bac', voice: 'Hải Đăng' }).expect(400);
-    await request(http).post('/api/tts').send({ text: 'a', region: 'bac', voice: 'Hải Đăng', speed: 5 }).expect(400);
-    await request(http).post('/api/tts').send({ text: 'a', region: 'bac', voice: 'Hải Đăng', hack: 1 }).expect(400);
+    await request(http)
+      .post('/api/tts')
+      .send({ text: 'a', region: 'nam', voice: 'Hải Đăng' })
+      .expect(400);
+    await request(http)
+      .post('/api/tts')
+      .send({ text: '   ', region: 'bac', voice: 'Hải Đăng' })
+      .expect(400);
+    await request(http)
+      .post('/api/tts')
+      .send({ text: 'a', region: 'bac', voice: 'Hải Đăng', speed: 5 })
+      .expect(400);
+    await request(http)
+      .post('/api/tts')
+      .send({ text: 'a', region: 'bac', voice: 'Hải Đăng', hack: 1 })
+      .expect(400);
   });
 
   it('queues, completes, serves audio, then hits cache', async () => {
-    const body = { text: 'Xin  chào   Việt Nam', region: 'bac', voice: 'Hải Đăng', speed: 1.21 };
+    const body = {
+      text: 'Xin  chào   Việt Nam',
+      region: 'bac',
+      voice: 'Hải Đăng',
+      speed: 1.21,
+    };
     const first = await request(http).post('/api/tts').send(body).expect(202);
     expect(first.body.jobId).toMatch(/^[a-f0-9]{64}$/);
 
     const done = await waitDone(http, first.body.jobId);
-    expect(done).toMatchObject({ status: 'completed', cached: false, duration: 1.23 });
+    expect(done).toMatchObject({
+      status: 'completed',
+      cached: false,
+      duration: 1.23,
+    });
     expect(fakeClient.synthesize).toHaveBeenLastCalledWith({
       text: 'Xin chào Việt Nam',
       voice: 'Hải Đăng',
@@ -94,7 +141,9 @@ describe('Gateway (e2e)', () => {
 
     const audio = await request(http).get(done.audioUrl).expect(200);
     expect(audio.headers['content-type']).toContain('audio/mpeg');
-    expect(Buffer.from(audio.body as Buffer).toString()).toBe('ID3fake-mp3-bytes');
+    expect(Buffer.from(audio.body as Buffer).toString()).toBe(
+      'ID3fake-mp3-bytes',
+    );
 
     const calls = fakeClient.synthesize.mock.calls.length;
     // Same request after normalization (whitespace, speed rounding) -> cache hit, no new synthesis.
@@ -102,7 +151,11 @@ describe('Gateway (e2e)', () => {
       .post('/api/tts')
       .send({ ...body, text: 'Xin chào Việt Nam ', speed: 1.19 })
       .expect(200);
-    expect(again.body).toMatchObject({ status: 'completed', cached: true, jobId: first.body.jobId });
+    expect(again.body).toMatchObject({
+      status: 'completed',
+      cached: true,
+      jobId: first.body.jobId,
+    });
     expect(fakeClient.synthesize.mock.calls.length).toBe(calls);
   });
 
@@ -116,14 +169,21 @@ describe('Gateway (e2e)', () => {
     ]);
     expect(a.body.jobId).toBe(b.body.jobId);
     expect(c.body.jobId).not.toBe(a.body.jobId);
-    await Promise.all([waitDone(http, a.body.jobId), waitDone(http, c.body.jobId)]);
+    await Promise.all([
+      waitDone(http, a.body.jobId),
+      waitDone(http, c.body.jobId),
+    ]);
     expect(fakeClient.synthesize.mock.calls.length - calls).toBe(2);
   });
 
   it('does not allow path traversal or unknown jobs', async () => {
     await request(http).get('/api/audio/..%2F..%2Fetc%2Fpasswd').expect(404);
-    await request(http).get(`/api/audio/${'a'.repeat(64)}.mp3`).expect(404);
+    await request(http)
+      .get(`/api/audio/${'a'.repeat(64)}.mp3`)
+      .expect(404);
     await request(http).get('/api/tts/jobs/not-a-hash').expect(404);
-    await request(http).get(`/api/tts/jobs/${'b'.repeat(64)}`).expect(404);
+    await request(http)
+      .get(`/api/tts/jobs/${'b'.repeat(64)}`)
+      .expect(404);
   });
 });

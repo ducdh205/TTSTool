@@ -19,6 +19,12 @@ export interface CacheKeyInput {
 
 /** Caller must pass already-normalized text/speed (see normalizeText/roundSpeed). */
 export function cacheKey(i: CacheKeyInput): string {
-  const payload = JSON.stringify([i.modelTag, i.text, i.voice.normalize('NFC'), i.speed.toFixed(2), i.format]);
+  const payload = JSON.stringify([
+    i.modelTag,
+    i.text,
+    i.voice.normalize('NFC'),
+    i.speed.toFixed(2),
+    i.format,
+  ]);
   return createHash('sha256').update(payload, 'utf8').digest('hex');
 }
