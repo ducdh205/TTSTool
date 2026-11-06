@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     vieneu_device: str = "cpu"
     vieneu_precision: str = "int8"
     warmup: bool = True
+    # Real-file copies (hardlinks) of the ONNX graphs; see engine._patch_onnx_fetch.
+    models_dir: str = "~/.cache/tooltts/models"
 
     max_chars: int = 3000
     ffmpeg_bin: str = "ffmpeg"

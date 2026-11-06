@@ -1,8 +1,11 @@
 """Thin, thread-safe wrapper around the VieNeu SDK (v3 Turbo by default)."""
 
 import logging
+import os
+import shutil
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -16,6 +19,43 @@ log = logging.getLogger("tts-service.engine")
 
 class UnknownVoiceError(ValueError):
     pass
+
+
+def _patch_onnx_fetch(models_dir: Path) -> None:
+    """Make VieNeu's ONNX engine load graphs from real files in one directory.
+
+    The SDK points ONNX Runtime at HF-cache snapshot paths, which are symlinks into
+    `blobs/`. ORT >= 1.31 validates that a graph's external data (`*.data`) resolves
+    inside the graph's directory and rejects the symlinked layout ("External data path
+    escapes model directory"). We keep using the HF cache for downloading, then
+    hardlink (or copy) each file into models_dir/<repo>/<subfolder>/.
+    """
+    from huggingface_hub import hf_hub_download
+    from vieneu._v3_turbo_engine import onnx_runtime_lite as lite
+
+    def fetch(repo: str, files: list[str], subfolder: str | None) -> Path:
+        target = models_dir / repo.replace("/", "__") / (subfolder or "")
+        target.mkdir(parents=True, exist_ok=True)
+        for fn in files:
+            dst = target / fn
+            if dst.exists():
+                continue
+            try:
+                src = Path(hf_hub_download(repo, fn, repo_type="model", subfolder=subfolder or None)).resolve()
+            except Exception:
+                if fn.endswith(".json"):
+                    continue  # optional meta, same as the SDK
+                raise
+            tmp = dst.with_name(dst.name + ".tmp")
+            tmp.unlink(missing_ok=True)
+            try:
+                os.link(src, tmp)
+            except OSError:
+                shutil.copy2(src, tmp)
+            tmp.replace(dst)
+        return target
+
+    lite.OnnxV3LiteEngine._fetch = staticmethod(fetch)
 
 
 class TtsEngine:
@@ -45,6 +85,7 @@ class TtsEngine:
             from vieneu import Vieneu  # heavy import, keep it lazy
 
             s = self.settings
+            _patch_onnx_fetch(Path(s.models_dir).expanduser())
             t0 = time.perf_counter()
             log.info("Loading VieNeu mode=%s device=%s precision=%s", s.vieneu_mode, s.vieneu_device, s.vieneu_precision)
             self._tts = Vieneu(
