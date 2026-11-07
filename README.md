@@ -43,7 +43,7 @@ Dùng để đọc câu nói trong file Excel testcase của voice assistant b�
 1. Chép file `.xlsx` vào `gateway/public/testcase/` để dùng ở mục **Mở nhanh** (file này không được commit), hoặc chọn file từ máy.
 2. Chọn sheet. Tool tự tìm cột `Câu nói` và `Vùng miền` ở dòng tiêu đề (trong 15 dòng đầu).
 3. Vùng `BAC-*`/`TRUNG-*`/`NAM-*` dùng giọng của vùng đó. Mặc định là Hải Đăng, Ngọc Trân và Thái Sơn, đổi được ở mục **Giọng theo vùng** và nghe thử được. Từng dòng cũng đổi được giọng riêng.
-4. Wake-word chỉ đọc ở Bước 1. Dòng có Tiền điều kiện ghi `Wake-word: Không…` hoặc `Nút thoại…` thì không đọc. Cột **WW** để bật/tắt tay.
+4. Wake-word đọc ở Bước 1, trừ khi Tiền điều kiện ghi `Wake-word: Không…` hoặc `Nút thoại…`. Từ Bước 2 trở đi, chỉ đọc khi Tiền điều kiện ghi rõ tên wake-word (ví dụ `Wake-word: Hey Vita`). Cột **WW** để bật/tắt tay.
 5. Dòng của Tester, HIL/CAN, loa media hoặc "không có lời nói" hiện màu xám và bị bỏ qua.
 6. Bấm **Sinh giọng**, rồi ▶ từng dòng hoặc **Phát toàn bộ**: wake-word → nghỉ (mặc định 1 giây) → câu nói → nghỉ (mặc định 3 giây) → dòng kế tiếp. Có Dừng/Tiếp tục/Huỷ.
 
@@ -57,7 +57,7 @@ Cài đặt (wake-word, khoảng nghỉ, tốc độ, định dạng, giọng th
 | GET | `/api/voices?region=bac` | Danh sách giọng (`id, name, region, gender, style, isDefault`) |
 | POST | `/api/tts` | Body `{text, region, voice, speed?=1 (0.5–2), format?='mp3'\|'wav'}`. Trả **200** kèm `audioUrl` nếu có sẵn trong cache, hoặc **202** kèm `jobId` nếu đã xếp hàng |
 | GET | `/api/tts/jobs/:jobId` | `{status: waiting\|active\|completed\|failed, position, progress, audioUrl, duration, cached, error}` |
-| POST | `/api/tts/batch` | Body `{items: [{text, region, voice, speed?, format?}]}` (1–200 item). Luôn trả 200 kèm `JobView[]` theo đúng thứ tự gửi lên; item lỗi trả `{status:'failed', error}`. Tối đa 10 lần/phút |
+| POST | `/api/tts/batch` | Body `{items: [{text, region, voice, speed?, format?}]}` (1–200 item). Luôn trả 200 kèm `JobView[]` theo đúng thứ tự gửi lên; item lỗi trả `{status:'failed', error}`. Tối đa 60 lần/phút |
 | POST | `/api/tts/jobs/status` | Body `{ids: string[]}` (1–500). Trả `JobView[]` theo thứ tự |
 | GET | `/api/testcases` | Danh sách file `.xlsx` trong `TESTCASE_DIR` (mặc định `gateway/public/testcase`) |
 | GET | `/api/audio/:hash.:ext` | File audio, có hỗ trợ Range |

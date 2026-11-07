@@ -31,6 +31,24 @@ interface TestcaseParse {
     s: 'need' | 'wait' | 'ok' | 'err';
     error?: string;
   };
+  prepareBatch(
+    clips: {
+      key: string;
+      voice: string;
+      text: string;
+      speed: number;
+      format: string;
+    }[],
+    regionOf: (voice: string) => string | undefined,
+  ): {
+    items: { key: string; item: Record<string, unknown> }[];
+    invalid: string[];
+  };
+  sanitizeSettings(raw: unknown): Record<string, unknown> & {
+    wakeWord: string;
+    gapAfterWake: number;
+    speed: number;
+  };
   REGION_DEFAULT_VOICES: Record<Region, string>;
 }
 
@@ -109,8 +127,15 @@ describe('wakeWordWanted', () => {
       P.wakeWordWanted(1, 'Xe: VF 6\nWake-word: Hey Vita\nCách phát: x'),
     ).toBe(true);
   });
-  it('never on step 2+', () => {
-    expect(P.wakeWordWanted(2, 'Wake-word: Hey Vita')).toBe(false);
+  it('on step 2+ only when the precondition names a wake word', () => {
+    expect(P.wakeWordWanted(2, 'Xe: VF 6\nWake-word: Hey Vita\nKhác: y')).toBe(
+      true,
+    );
+    expect(P.wakeWordWanted(3, 'Wake-word: Vita ơi')).toBe(true);
+    expect(P.wakeWordWanted(2, 'Xe: VF 6')).toBe(false);
+    expect(P.wakeWordWanted(2, null)).toBe(false);
+    expect(P.wakeWordWanted(2, 'Wake-word: Không cần')).toBe(false);
+    expect(P.wakeWordWanted(2, 'Wake-word:   ')).toBe(false);
   });
   it.each([
     'Không nói wake-word',
@@ -171,7 +196,7 @@ describe('parseSheet', () => {
     ...PREAMBLE,
     HEADER,
     row({ tc: 'TC-1' }),
-    row({ tc: 'TC-1', step: '2', utt: 'Có, mở đi' }),
+    row({ tc: 'TC-1', step: '2', utt: 'Có, mở đi', pre: 'Xe: VF 6' }),
     row({ tc: 'TC-2', utt: '' }),
     row({ tc: 'TC-3', speaker: '🔧 Tester (thao tác)' }),
     row({ tc: 'TC-4', step: 'Trạng thái hệ thống: CTX-01 Xe đỗ...' }),
@@ -262,5 +287,114 @@ describe('rowStatus', () => {
   });
   it('needs generation when nothing exists', () => {
     expect(P.rowStatus([undefined])).toEqual({ s: 'need' });
+  });
+});
+
+describe('prepareBatch', () => {
+  const regionOf = (v: string) => ({ 'Hải Đăng': 'bac', 'Thái Sơn': 'nam' })[v];
+  const clip = (key: string, voice: string, speed = 1, format = 'mp3') => ({
+    key,
+    voice,
+    text: `câu ${key}`,
+    speed,
+    format,
+  });
+
+  it('builds items from the speed/format stored on each clip', () => {
+    const out = P.prepareBatch(
+      [clip('a', 'Hải Đăng', 1.2, 'wav'), clip('b', 'Thái Sơn')],
+      regionOf,
+    );
+    expect(out.invalid).toEqual([]);
+    expect(out.items).toEqual([
+      {
+        key: 'a',
+        item: {
+          text: 'câu a',
+          voice: 'Hải Đăng',
+          region: 'bac',
+          speed: 1.2,
+          format: 'wav',
+        },
+      },
+      {
+        key: 'b',
+        item: {
+          text: 'câu b',
+          voice: 'Thái Sơn',
+          region: 'nam',
+          speed: 1,
+          format: 'mp3',
+        },
+      },
+    ]);
+  });
+
+  it('keeps clips without a voice or region out of the request', () => {
+    const out = P.prepareBatch(
+      [clip('a', 'Không Có'), clip('b', ''), clip('c', 'Hải Đăng')],
+      regionOf,
+    );
+    expect(out.invalid).toEqual(['a', 'b']);
+    expect(out.items.map((i) => i.key)).toEqual(['c']);
+  });
+});
+
+describe('sanitizeSettings', () => {
+  const D = {
+    wakeWord: 'Hey Vita',
+    gapAfterWake: 1,
+    gapBetween: 3,
+    speed: 1,
+    format: 'mp3',
+    voiceByRegion: {},
+    sheet: '',
+    file: '',
+  };
+
+  it('keeps valid values', () => {
+    const s = {
+      ...D,
+      wakeWord: 'Vita ơi',
+      gapAfterWake: 0.5,
+      gapBetween: 10,
+      speed: 1.5,
+      format: 'wav',
+      voiceByRegion: { trung: 'Quang Sơn' },
+      sheet: 'Ion',
+      file: 'a.xlsx',
+    };
+    expect(P.sanitizeSettings(s)).toEqual(s);
+  });
+
+  it('falls back to defaults for invalid or foreign values', () => {
+    expect(
+      P.sanitizeSettings({
+        wakeWord: 42,
+        gapAfterWake: 'x',
+        gapBetween: 999,
+        speed: 7,
+        format: 'ogg"]',
+        voiceByRegion: 'bad',
+        sheet: null,
+        extra: 1,
+      }),
+    ).toEqual({ ...D, gapBetween: 60, speed: 2 });
+  });
+
+  it('clamps and truncates', () => {
+    const s = P.sanitizeSettings({
+      wakeWord: 'a'.repeat(150),
+      gapAfterWake: -1,
+      speed: 0.1,
+    });
+    expect(s.wakeWord).toHaveLength(100);
+    expect(s.gapAfterWake).toBe(0);
+    expect(s.speed).toBe(0.5);
+  });
+
+  it('accepts garbage input', () => {
+    expect(P.sanitizeSettings(null)).toEqual(D);
+    expect(P.sanitizeSettings('x')).toEqual(D);
   });
 });

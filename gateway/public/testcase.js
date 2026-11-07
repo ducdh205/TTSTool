@@ -16,7 +16,6 @@
   const BATCH = 200;
   const STATUS_CHUNK = 500;
   const POLL_MS = 1500;
-  const DEFAULTS = { wakeWord: 'Hey Vita', gapAfterWake: 1, gapBetween: 3, speed: 1, format: 'mp3', voiceByRegion: {}, sheet: '', file: '' };
 
   const state = {
     settings: loadSettings(),
@@ -58,10 +57,9 @@
   // ---------- settings ----------
   function loadSettings() {
     try {
-      const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-      return { ...DEFAULTS, ...s, voiceByRegion: { ...(s.voiceByRegion || {}) } };
+      return P.sanitizeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
     } catch {
-      return { ...DEFAULTS, voiceByRegion: {} };
+      return P.sanitizeSettings({});
     }
   }
   function saveSettings() {
@@ -230,21 +228,24 @@
       if (c && c.status === 'failed' && !retry) continue;
       const spec = specs.find((s) => keyOf(s.voice, s.text) === key);
       const text = spec.text.normalize('NFC').trim().replace(/\s+/g, ' ');
-      state.clips.set(key, { voice: spec.voice, text, status: 'queued' });
+      // speed/format are frozen here (they are part of the key) so later chunks cannot drift.
+      const { speed, format } = state.settings;
+      state.clips.set(key, { voice: spec.voice, text, speed, format, status: 'queued' });
       todo.push(key);
     }
+    const { items: prepared, invalid } = P.prepareBatch(
+      todo.map((key) => ({ key, ...state.clips.get(key) })),
+      regionOfVoice,
+    );
+    for (const k of invalid) applyView(k, { status: 'failed', error: 'Giọng không hợp lệ hoặc không thuộc vùng nào' });
     updateStatuses();
-    for (let i = 0; i < todo.length; i += BATCH) {
-      const chunk = todo.slice(i, i + BATCH);
-      const items = chunk.map((k) => {
-        const c = state.clips.get(k);
-        return { text: c.text, voice: c.voice, region: regionOfVoice(c.voice), speed: state.settings.speed, format: state.settings.format };
-      });
+    for (let i = 0; i < prepared.length; i += BATCH) {
+      const chunk = prepared.slice(i, i + BATCH);
       try {
-        const views = await api('/tts/batch', { method: 'POST', body: JSON.stringify({ items }) });
-        views.forEach((v, j) => applyView(chunk[j], v));
+        const views = await api('/tts/batch', { method: 'POST', body: JSON.stringify({ items: chunk.map((c) => c.item) }) });
+        views.forEach((v, j) => applyView(chunk[j].key, v));
       } catch (e) {
-        for (const k of chunk) applyView(k, { status: 'failed', error: e.message });
+        for (const c of chunk) applyView(c.key, { status: 'failed', error: e.message });
       }
       updateStatuses();
     }
@@ -523,17 +524,19 @@
     const ww = wakeText();
     const text = `${ww ? `${ww}, ` : ''}xin chào, đây là giọng ${v?.name || voice}.`;
     const pb = newPlayback();
+    // A newer preview/playback replaces this one: stop touching the shared status line.
+    const say = (msg, kind) => { if (state.playback === pb) status(els.voiceStatus, msg, kind); };
     setPlayButtons(true);
-    status(els.voiceStatus, `Đang chuẩn bị giọng ${v?.name || voice}...`);
+    say(`Đang chuẩn bị giọng ${v?.name || voice}...`);
     try {
       await ensureClips([{ voice, text }], { retry: true });
       const c = clipOf({ voice, text });
       if (c?.status !== 'completed') throw new Error(c?.error || 'Không tạo được câu mẫu');
-      status(els.voiceStatus, `Nghe thử: ${v?.name || voice}`);
+      say(`Nghe thử: ${v?.name || voice}`);
       await playClip(c.audioUrl, pb);
-      status(els.voiceStatus, '');
+      say('');
     } catch (e) {
-      status(els.voiceStatus, e.message, 'err');
+      say(e.message, 'err');
     }
     finish(pb);
   }
@@ -546,8 +549,8 @@
     els.gapBetween.value = s.gapBetween;
     els.speed.value = s.speed;
     els.speedOut.textContent = Number(s.speed).toFixed(2) + '×';
-    const fmt = document.querySelector(`input[name=format][value="${s.format}"]`) || document.querySelector('input[name=format]');
-    fmt.checked = true;
+    const radios = [...document.querySelectorAll('input[name=format]')];
+    (radios.find((r) => r.value === s.format) || radios[0]).checked = true;
 
     els.wakeWord.addEventListener('change', () => { s.wakeWord = els.wakeWord.value.trim(); saveSettings(); renderTable(); });
     els.gapAfterWake.addEventListener('change', () => { s.gapAfterWake = num(els.gapAfterWake.value, 1, 0, 10); els.gapAfterWake.value = s.gapAfterWake; saveSettings(); });

@@ -233,6 +233,16 @@ describe('Gateway (e2e)', () => {
     ]);
   });
 
+  it('allows frequent single-item batches (preview / ▶ / retry)', async () => {
+    // Guards run before validation, so invalid bodies still count against the throttle.
+    for (let i = 0; i < 15; i++) {
+      await request(http)
+        .post('/api/tts/batch')
+        .send({ items: [] })
+        .expect(400);
+    }
+  });
+
   it('rejects empty batch and malformed status ids', async () => {
     await request(http).post('/api/tts/batch').send({ items: [] }).expect(400);
     await request(http)

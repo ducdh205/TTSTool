@@ -59,12 +59,16 @@
     return { region };
   }
 
+  /**
+   * Step 1 (or blank/0): yes unless the precondition's "Wake-word:" line says "Không…" / "Nút thoại…".
+   * Step 2+: only when that line explicitly names a wake word (e.g. "Wake-word: Hey Vita").
+   */
   function wakeWordWanted(step, precondition) {
-    if (step > 1) return false;
     const m = /Wake-word:\s*([^\n]*)/i.exec(str(precondition));
-    if (!m) return true;
-    const v = m[1].trim();
-    return !(/^Không/i.test(v) || /Nút thoại/i.test(v));
+    const v = m ? m[1].trim() : '';
+    const negative = /^Không/i.test(v) || /Nút thoại/i.test(v);
+    if (step > 1) return v !== '' && !negative;
+    return !negative;
   }
 
   function isSpeech(speaker) {
@@ -135,7 +139,59 @@
     return { s: 'need' };
   }
 
+  /**
+   * Splits queued clips ({key, voice, text, speed, format}) into batch items and keys that cannot be sent
+   * (unknown voice/region) — those would make the whole request fail DTO validation.
+   */
+  function prepareBatch(clips, regionOf) {
+    const items = [];
+    const invalid = [];
+    for (const c of clips) {
+      const region = c.voice ? regionOf(c.voice) : undefined;
+      if (!region) invalid.push(c.key);
+      else items.push({ key: c.key, item: { text: c.text, voice: c.voice, region, speed: c.speed, format: c.format } });
+    }
+    return { items, invalid };
+  }
+
+  const DEFAULT_SETTINGS = {
+    wakeWord: 'Hey Vita', gapAfterWake: 1, gapBetween: 3, speed: 1, format: 'mp3', voiceByRegion: {}, sheet: '', file: '',
+  };
+  const FORMATS = ['mp3', 'wav'];
+  const MAX_WAKE_LEN = 100;
+
+  function numIn(v, def, min, max) {
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
+  }
+  const strOr = (v, def) => (typeof v === 'string' ? v : def);
+
+  /** Validates settings read back from localStorage; unknown keys dropped, bad values -> defaults/clamped. */
+  function sanitizeSettings(raw) {
+    const s = raw && typeof raw === 'object' ? raw : {};
+    const d = DEFAULT_SETTINGS;
+    const voiceByRegion = {};
+    if (s.voiceByRegion && typeof s.voiceByRegion === 'object') {
+      for (const r of ['bac', 'trung', 'nam']) {
+        if (typeof s.voiceByRegion[r] === 'string') voiceByRegion[r] = s.voiceByRegion[r];
+      }
+    }
+    return {
+      wakeWord: strOr(s.wakeWord, d.wakeWord).slice(0, MAX_WAKE_LEN),
+      gapAfterWake: numIn(s.gapAfterWake, d.gapAfterWake, 0, 10),
+      gapBetween: numIn(s.gapBetween, d.gapBetween, 0, 60),
+      speed: numIn(s.speed, d.speed, 0.5, 2),
+      format: FORMATS.includes(s.format) ? s.format : d.format,
+      voiceByRegion,
+      sheet: strOr(s.sheet, d.sheet),
+      file: strOr(s.file, d.file),
+    };
+  }
+
   return {
+    prepareBatch,
+    sanitizeSettings,
+    DEFAULT_SETTINGS,
     rowStatus,
     findHeader,
     mapRegion,

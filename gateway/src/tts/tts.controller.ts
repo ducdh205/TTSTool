@@ -35,7 +35,7 @@ export class TtsController {
   @Post('batch')
   @HttpCode(200)
   @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   batch(@Body() dto: CreateTtsBatchDto) {
     return this.tts.submitMany(dto.items);
   }
