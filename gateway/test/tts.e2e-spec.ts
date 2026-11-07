@@ -252,8 +252,30 @@ describe('Gateway (e2e)', () => {
         name: 'Bộ test 1.xlsx',
         size: 10,
         mtime: expect.any(String),
-        url: '/testcase/B%E1%BB%99%20test%201.xlsx',
+        url: '/api/testcases/B%E1%BB%99%20test%201.xlsx',
       },
     ]);
+  });
+
+  it('downloads a workbook from TESTCASE_DIR (outside public/)', async () => {
+    const r = await request(http)
+      .get('/api/testcases/B%E1%BB%99%20test%201.xlsx')
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect((r.body as Buffer).toString()).toBe('xlsx-bytes');
+    expect(r.headers['content-type']).toContain('spreadsheetml');
+  });
+
+  it('refuses traversal, non-xlsx and missing workbooks', async () => {
+    await request(http)
+      .get('/api/testcases/..%2F..%2Fpackage.json')
+      .expect(404);
+    await request(http).get('/api/testcases/note.txt').expect(404);
+    await request(http).get('/api/testcases/missing.xlsx').expect(404);
   });
 });

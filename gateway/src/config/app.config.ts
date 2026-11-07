@@ -19,7 +19,7 @@ export const appConfig = registerAs('app', () => ({
   queueConcurrency: int(process.env.QUEUE_CONCURRENCY, 1),
   /** Part of the cache key: bump when model/precision changes so old audio is not reused. */
   modelTag: process.env.MODEL_TAG ?? 'vieneu-v3turbo-int8',
-  /** Folder of .xlsx workbooks offered by the testcase page (served statically under /testcase/). */
+  /** Folder of .xlsx workbooks offered by the testcase page (downloaded via GET /api/testcases/:name). */
   testcaseDir: resolve(
     process.env.TESTCASE_DIR ??
       join(__dirname, '..', '..', 'public', 'testcase'),

@@ -1,6 +1,14 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  StreamableFile,
+} from '@nestjs/common';
+import { createReadStream } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { appConfig, type AppConfig } from '../config/app.config';
 
 export interface TestcaseFile {
@@ -10,11 +18,18 @@ export interface TestcaseFile {
   url: string;
 }
 
+const XLSX_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** .xlsx, and not an Excel lock file ("~$..."). */
+const isWorkbookName = (name: string) =>
+  /\.xlsx$/i.test(name) && !name.startsWith('~$');
+
 @Controller('testcases')
 export class TestcasesController {
   constructor(@Inject(appConfig.KEY) private readonly cfg: AppConfig) {}
 
-  /** .xlsx workbooks in TESTCASE_DIR (not recursive; Excel lock files "~$..." skipped). */
+  /** Workbooks in TESTCASE_DIR (not recursive). */
   @Get()
   async list(): Promise<TestcaseFile[]> {
     const dir = this.cfg.testcaseDir;
@@ -26,10 +41,7 @@ export class TestcasesController {
       throw e;
     }
     const names = entries
-      .filter(
-        (d) =>
-          d.isFile() && /\.xlsx$/i.test(d.name) && !d.name.startsWith('~$'),
-      )
+      .filter((d) => d.isFile() && isWorkbookName(d.name))
       .map((d) => d.name)
       .sort((a, b) => a.localeCompare(b, 'vi'));
     return Promise.all(
@@ -39,9 +51,25 @@ export class TestcasesController {
           name,
           size: s.size,
           mtime: s.mtime.toISOString(),
-          url: `/testcase/${encodeURIComponent(name)}`,
+          url: `/api/testcases/${encodeURIComponent(name)}`,
         };
       }),
     );
+  }
+
+  /** Streams one workbook; the name must be a plain .xlsx file name inside TESTCASE_DIR. */
+  @Get(':name')
+  async download(@Param('name') name: string): Promise<StreamableFile> {
+    if (name !== basename(name) || !isWorkbookName(name)) {
+      throw new NotFoundException('File không tồn tại');
+    }
+    const path = join(this.cfg.testcaseDir, name);
+    const s = await stat(path).catch(() => null);
+    if (!s?.isFile()) throw new NotFoundException('File không tồn tại');
+    return new StreamableFile(createReadStream(path), {
+      type: XLSX_TYPE,
+      length: s.size,
+      disposition: `inline; filename*=UTF-8''${encodeURIComponent(name)}`,
+    });
   }
 }

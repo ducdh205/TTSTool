@@ -39,6 +39,44 @@ describe('TtsService batch', () => {
     ]);
   });
 
+  it('statusMany does not compute queue positions (O(n) per id)', async () => {
+    const getWaiting = jest.fn().mockResolvedValue([]);
+    const queue = {
+      getJob: jest.fn().mockResolvedValue({
+        id: 'a',
+        timestamp: 1,
+        getState: jest.fn().mockResolvedValue('waiting'),
+      }),
+      getWaiting,
+      getActiveCount: jest.fn().mockResolvedValue(0),
+    };
+    const svc = new TtsService(
+      queue as never,
+      {} as AppConfig,
+      {} as AudioCacheService,
+      {} as VoicesService,
+    );
+    const id = 'a'.repeat(64);
+
+    await expect(svc.statusMany([id, id])).resolves.toEqual([
+      { jobId: id, status: 'waiting' },
+      { jobId: id, status: 'waiting' },
+    ]);
+    expect(getWaiting).not.toHaveBeenCalled();
+
+    await svc.status(id);
+    expect(getWaiting).toHaveBeenCalledTimes(1);
+  });
+
+  it('submitMany asks submit() not to compute queue positions', async () => {
+    const svc = makeService();
+    const submit = jest
+      .spyOn(svc, 'submit')
+      .mockResolvedValue({ jobId: 'a', status: 'waiting' });
+    await svc.submitMany([item('1')]);
+    expect(submit).toHaveBeenCalledWith(item('1'), false);
+  });
+
   it('statusMany maps NotFound to failed', async () => {
     const svc = makeService();
     const id = 'f'.repeat(64);

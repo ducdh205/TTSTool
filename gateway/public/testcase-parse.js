@@ -124,7 +124,19 @@
     return `${String(voice).normalize('NFC')}|${String(text).normalize('NFC').trim().replace(/\s+/g, ' ')}`;
   }
 
+  const PENDING = new Set(['queued', 'waiting', 'active']);
+
+  /** Row state from its clips (missing = undefined): 'err' > 'ok' (all done) > 'wait' (any pending) > 'need'. */
+  function rowStatus(clips) {
+    const err = clips.find((c) => c && c.status === 'failed');
+    if (err) return { s: 'err', error: err.error };
+    if (clips.every((c) => c && c.status === 'completed')) return { s: 'ok' };
+    if (clips.some((c) => c && PENDING.has(c.status))) return { s: 'wait' };
+    return { s: 'need' };
+  }
+
   return {
+    rowStatus,
     findHeader,
     mapRegion,
     wakeWordWanted,

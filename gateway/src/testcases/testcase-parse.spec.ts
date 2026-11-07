@@ -27,6 +27,10 @@ interface TestcaseParse {
   isSpeech(speaker: unknown): boolean;
   parseSheet(rows: unknown[][]): Row[] | null;
   clipKey(voice: string, text: string): string;
+  rowStatus(clips: ({ status: string; error?: string } | undefined)[]): {
+    s: 'need' | 'wait' | 'ok' | 'err';
+    error?: string;
+  };
   REGION_DEFAULT_VOICES: Record<Region, string>;
 }
 
@@ -234,5 +238,29 @@ describe('clipKey and defaults', () => {
       trung: 'Ngọc Trân',
       nam: 'Thái Sơn',
     });
+  });
+});
+
+describe('rowStatus', () => {
+  const done = { status: 'completed' };
+  it('needs generation when the wake clip is missing but the utterance is done', () => {
+    expect(P.rowStatus([undefined, done])).toEqual({ s: 'need' });
+  });
+  it('is ok only when every clip is completed', () => {
+    expect(P.rowStatus([done, done])).toEqual({ s: 'ok' });
+  });
+  it('waits while a clip is queued, waiting or active', () => {
+    for (const status of ['queued', 'waiting', 'active']) {
+      expect(P.rowStatus([{ status }, done])).toEqual({ s: 'wait' });
+    }
+  });
+  it('reports the first error', () => {
+    expect(P.rowStatus([done, { status: 'failed', error: 'hỏng' }])).toEqual({
+      s: 'err',
+      error: 'hỏng',
+    });
+  });
+  it('needs generation when nothing exists', () => {
+    expect(P.rowStatus([undefined])).toEqual({ s: 'need' });
   });
 });

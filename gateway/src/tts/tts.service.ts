@@ -27,7 +27,8 @@ export class TtsService {
     private readonly voices: VoicesService,
   ) {}
 
-  async submit(dto: CreateTtsDto): Promise<JobView> {
+  /** withPosition=false skips the O(waiting) queue-position lookup (batch callers). */
+  async submit(dto: CreateTtsDto, withPosition = true): Promise<JobView> {
     // SDK voice names are NFC; normalize once so validation, cache key and job agree.
     const voice = dto.voice.normalize('NFC');
     await this.voices.assertVoiceInRegion(voice, dto.region);
@@ -61,7 +62,7 @@ export class TtsService {
         removeOnFail: { age: 3600 },
       },
     );
-    return this.status(hash);
+    return this.status(hash, withPosition);
   }
 
   /** Submits sequentially (keeps queue order); one bad item never fails the batch. */
@@ -69,7 +70,7 @@ export class TtsService {
     const out: JobView[] = [];
     for (const item of items) {
       try {
-        out.push(await this.submit(item));
+        out.push(await this.submit(item, false));
       } catch (e) {
         out.push({ jobId: '', status: 'failed', error: errorMessage(e) });
       }
@@ -80,7 +81,7 @@ export class TtsService {
   statusMany(ids: string[]): Promise<JobView[]> {
     return Promise.all(
       ids.map((id) =>
-        this.status(id).catch((e: unknown): JobView => ({
+        this.status(id, false).catch((e: unknown): JobView => ({
           jobId: id,
           status: 'failed',
           error: errorMessage(e),
@@ -89,7 +90,7 @@ export class TtsService {
     );
   }
 
-  async status(jobId: string): Promise<JobView> {
+  async status(jobId: string, withPosition = true): Promise<JobView> {
     if (!HASH_RE.test(jobId)) throw new NotFoundException('Job không tồn tại');
     const job = await this.queue.getJob(jobId);
     if (!job) {
@@ -123,11 +124,9 @@ export class TtsService {
       case 'active':
         return { jobId, status: 'active', progress: progressOf(job) };
       default:
-        return {
-          jobId,
-          status: 'waiting',
-          position: await this.positionOf(job),
-        };
+        return withPosition
+          ? { jobId, status: 'waiting', position: await this.positionOf(job) }
+          : { jobId, status: 'waiting' };
     }
   }
 

@@ -209,12 +209,7 @@
   /** 'skip' | 'need' | 'wait' | 'ok' | 'err' */
   function rowState(row) {
     if (!row.speech) return { s: 'skip' };
-    const clips = rowClipSpecs(row).map(clipOf);
-    const err = clips.find((c) => c?.status === 'failed');
-    if (err) return { s: 'err', error: err.error };
-    if (clips.every((c) => c?.status === 'completed')) return { s: 'ok' };
-    if (clips.some((c) => c && c.status !== 'failed')) return { s: 'wait' };
-    return { s: 'need' };
+    return P.rowStatus(rowClipSpecs(row).map(clipOf));
   }
 
   function setOverride(row, patch) {
@@ -419,8 +414,9 @@
     }
   }
 
-  function dropClips(row) {
-    for (const spec of rowClipSpecs(row)) state.clips.delete(keyOf(spec.voice, spec.text));
+  /** Forget one clip whose audio failed to load (shared wake clips of other rows stay intact). */
+  function dropClip(spec) {
+    state.clips.delete(keyOf(spec.voice, spec.text));
     updateStatuses();
   }
 
@@ -431,14 +427,14 @@
     const st = rowState(row);
     if (st.s !== 'ok') throw new Error(st.error || 'Chưa có audio');
     const clips = specs.map(clipOf);
-    try {
-      for (let i = 0; i < clips.length && !pb.cancelled; i++) {
-        if (i > 0) await wait(state.settings.gapAfterWake * 1000, pb);
+    for (let i = 0; i < clips.length && !pb.cancelled; i++) {
+      if (i > 0) await wait(state.settings.gapAfterWake * 1000, pb);
+      try {
         await playClip(clips[i].audioUrl, pb);
+      } catch (e) {
+        dropClip(specs[i]);
+        throw e;
       }
-    } catch (e) {
-      dropClips(row);
-      throw e;
     }
   }
 
